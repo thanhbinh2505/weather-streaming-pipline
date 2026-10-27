@@ -1,0 +1,82 @@
+services:
+  # 1. Zookeeper
+  zookeeper:
+    image: zookeeper:3.9.2 #Mã nguồn đóng gói sẵn của Zookeeper từ kho lưu trữ Docker Hub.
+    ports:
+      - "2181:2181" #Công giao tiếp
+    environment:
+      ZOO_MY_ID: 1 #Cung cấp 1 mã định danh duy nhất
+
+  # 2. Kafka Broker
+  kafka:
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9092:9092" #Cổng mặc định để tiếp nhận và phát dữ liệu
+    environment:
+    #tên định danh cổng và mạng
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      #Tự động tạo topic weather_data với 1 phân vùng và 1 bản sao
+      KAFKA_CREATE_TOPICS: "weather_data:1:1"
+    depends_on:
+      - zookeeper
+
+  # 3. Kafka Exporter
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    restart: on-failure #Tự động khởi động lại container nếu tiến trình bị lỗi
+    command: ["--kafka.server=kafka:9092"]
+    ports:
+      - "9308:9308"
+    depends_on:
+      - kafka
+  
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - kafka-exporter
+
+  # 5. Grafana - Visualization Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Optional: Enable anonymous access to bypass login screen
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      # 1. Automated Prometheus connection (Data Source provisioning)
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      # 2. Automated loading of dashboard provider settings
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      # 3. Mount folder containing actual JSON dashboard files
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+  # 6. Weather Producer (Python Ingestion App)
+  producer:
+    build:
+      context: .
+      dockerfile: producer/Dockerfile
+    env_file: .env
+    restart: on-failure
+    depends_on:
+      - kafka
+
+  # 7. Spark Consumer (PySpark Streaming App)
+  spark-consumer:
+    build:
+      context: .
+      dockerfile: consumer/Dockerfile
+    env_file: .env
+    restart: on-failure
+    depends_on:
+      - kafka
