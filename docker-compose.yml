@@ -34,10 +34,10 @@ services:
   
   prometheus:
     image: prom/prometheus:latest
-    volumes:
+    volumes: #gắn trực tiếp file prometheus.yml từ máy thật vào trong máy ảo để prometheustự nạp luật quét metrics
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
-      - "9090:9090"
+      - "9090:9090" #cổng truy cập giao diện đồ họa gốc của prometheus
     depends_on:
       - kafka-exporter
 
@@ -47,31 +47,33 @@ services:
     ports:
       - "3000:3000"
     environment:
+    #Cấp quyền quản trị cho phép ng dùng xem bảng điều khiển mà k bị chặn bước nhập mật khẩu
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      # Optional: Enable anonymous access to bypass login screen
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
-      # 1. Automated Prometheus connection (Data Source provisioning)
+      # 1. Tự động kết nối prometheus - cung cấp nguồn Data Source provisioning
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      # 2. Automated loading of dashboard provider settings
+      # 2. Tự động tải các thiết lập của dashboard
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      # 3. Mount folder containing actual JSON dashboard files
+      # 3. gắn các tệp JSON vẽ dashboard
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
 
-  # 6. Weather Producer (Python Ingestion App)
+  # 6. Weather Producer
   producer:
+  #yêu cầu docker tự biên dịch mã nguôn, nhắm thẳng vào fike dockerfile
     build:
       context: .
       dockerfile: producer/Dockerfile
+      # Nạp các biến số từ .env vào máy ảo
     env_file: .env
     restart: on-failure
     depends_on:
       - kafka
 
-  # 7. Spark Consumer (PySpark Streaming App)
+  # 7. Spark Consumer
   spark-consumer:
     build:
       context: .
