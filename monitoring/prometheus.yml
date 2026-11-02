@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 30s # Thời gian thu thập các chỉ số
+
+scrape_configs:
+  - job_name: 'kafka-monitoring'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

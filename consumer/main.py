@@ -29,9 +29,10 @@ def main():
         .option("kafka.bootstrap.servers", kafka_bootstrap_servers) \
         .option("subscribe", topic) \
         .option("group.id", "weather-consumer-group") \
+        .option("kafka.group.id", "weather-consumer-group")\
         .option("startingOffsets", "earliest") \
         .load()
-    #   .option("kafka.enable.auto.commit", "false") \
+   
     #JSON - Giải mã dữ liệu
     # Chuyển đổi kiểu dữ sang chuỗi văn bản - truyền chuỗi văn bảng vào schema (data)
     weather_df = df.selectExpr("CAST(value as STRING)").select(from_json(col("value"), schema).alias("data"))\
@@ -48,7 +49,7 @@ def main():
     #Xuất kết quả
     query = avg_tmp_df.writeStream.outputMode("complete").format("console")\
             .option("checkpointLocation", "/tmp/checkpoints/weather_stats")\
-            .trigger(processingTime='10 seconds').start()
+            .trigger(processingTime='10 seconds').option("kafka.group.id", "weather-consumer-group").start()
 
     # option("group.id", "weather-consumer-group")
             # Ghi lại tiến trình xuống ô cứng, sẽ đọc file này nếu máy ảo bị sập
