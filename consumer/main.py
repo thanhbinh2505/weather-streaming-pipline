@@ -51,7 +51,6 @@ def main():
             .option("checkpointLocation", "/tmp/checkpoints/weather_stats")\
             .trigger(processingTime='10 seconds').option("kafka.group.id", "weather-consumer-group").start()
 
-    # option("group.id", "weather-consumer-group")
             # Ghi lại tiến trình xuống ô cứng, sẽ đọc file này nếu máy ảo bị sập
     query.awaitTermination()
 
